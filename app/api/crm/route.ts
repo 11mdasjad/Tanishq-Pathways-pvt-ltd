@@ -1,0 +1,4 @@
+import { actor, overview, detail, mutate, upload, errorResponse } from '../../../lib/crm';
+export const dynamic='force-dynamic';
+export async function GET(request:Request){try{const u=await actor();const id=new URL(request.url).searchParams.get('leadId');return Response.json(id?await detail(u,id):await overview(u),{headers:{'Cache-Control':'no-store'}});}catch(e){return errorResponse(e);}}
+export async function POST(request:Request){try{const origin=request.headers.get('origin');if(!origin||origin!==new URL(request.url).origin)return Response.json({error:'Invalid request origin.'},{status:403});const u=await actor();if(request.headers.get('content-type')?.includes('multipart/form-data'))return Response.json(await upload(u,await request.formData()));return Response.json(await mutate(u,await request.json()));}catch(e){return errorResponse(e);}}
