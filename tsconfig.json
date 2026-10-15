@@ -25,6 +25,9 @@
     "paths": {
       "@/*": [
         "./*"
+      ],
+      "@runtime-env": [
+        "./lib/cloudflare-env.ts"
       ]
     },
     "types": [

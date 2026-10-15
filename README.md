@@ -22,6 +22,39 @@ React 19 + TypeScript on Vinext/Vite, Cloudflare Workers, D1 SQLite, private R2 
 
 Admin and Employee accounts now support ID/password sign-in, automatically resolving the role from the database. Passwords use salted PBKDF2-SHA256 hashes; random session tokens are stored only as SHA-256 hashes in the database. Cookies are HttpOnly/SameSite=Strict and Secure on HTTPS, with an eight-hour expiry. Login attempts are limited by account and IP. Temporary passwords require a first-login change, and resets revoke all prior sessions. Once password accounts are provisioned, the legacy Sites identity fallback is disabled. Sites hosting, if later approved, remains a separate outer access boundary.
 
+## Deploy on Vercel
+
+Vercel uses native Next.js through `vercel.json` and `npm run build:vercel`.
+The normal local/Sites workflow still uses Vinext. Node is pinned to `22.x`.
+Do not change Vercel's output directory to `dist`: Next.js emits `.next`, including
+`routes-manifest.json`.
+
+The CRM backend requires Cloudflare D1 and R2; these bindings cannot run inside
+Vercel functions. This deployment supports a Vercel frontend with the existing
+Cloudflare backend:
+
+1. Deploy the backend to Cloudflare with the `DB` and `BUCKET` bindings, apply all
+   `drizzle/*.sql` migrations in order, and provision production password accounts.
+   Local `.wrangler` data/accounts are not uploaded by Git or Vercel.
+2. Set `CLOUDFLARE_BACKEND_ORIGIN` in Vercel to that deployment's HTTPS origin
+   (no path, query, or trailing API route). It must expose the password-authenticated
+   APIs without an outer Sites sign-in redirect. Do not use the Vercel URL itself.
+3. Keep Framework Preset **Next.js**, Build Command **npm run build:vercel**,
+   and Output Directory **.next**, then redeploy.
+4. Verify login/logout, employee permissions, file upload/download, and PDF receipts
+   against the configured production backend. Vercel function request-size limits
+   also apply to proxied uploads.
+
+`proxy.ts` forwards API traffic and session cookies to Cloudflare. It validates
+browser origins before forwarding mutations and strips inbound identity headers.
+Without a backend origin, pages still deploy but APIs return an explicit 503.
+An unavailable backend returns 502. No local database or fake production data is
+used as a fallback. Cloudflare retains its transactional writes and private files.
+
+For a local Next.js production smoke check: `npm run build:vercel`, then
+`npm run start:vercel`. Set the backend origin in the server environment when
+checking real workflows. Use the normal local workflow below for D1/R2 emulation.
+
 ## Run locally
 
 ```sh

@@ -1,7 +1,7 @@
 import {agreementPlans,resolveAgreementPlan} from './agreement-plans';
 import { paymentSummary } from './payment-summary';
 import { agreementSetup } from './agreement-setup';
-import { env } from 'cloudflare:workers';
+import { env } from '@runtime-env';
 import { cookies } from 'next/headers';
 import { tokenHash, hashPassword, temporaryPassword } from './password';
 import { getChatGPTUser } from '../app/chatgpt-auth';
