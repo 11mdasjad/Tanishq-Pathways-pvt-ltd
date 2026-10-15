@@ -1,8 +1,6 @@
-import { NextResponse, type NextRequest } from 'next/server';
-import { forwardBackend } from './lib/backend-proxy';
+import { NextResponse } from 'next/server';
 
-export function proxy(request: NextRequest) {
-  if (process.env.DEPLOY_TARGET !== 'vercel' && process.env.VERCEL !== '1') return NextResponse.next();
-  return forwardBackend(request);
-}
+// CRM API handlers execute directly on Vercel with managed storage.
+// Each write handler validates Origin and each read enforces account permissions.
+export function proxy() { return NextResponse.next(); }
 export const config = { matcher: '/api/:path*' };

@@ -19,8 +19,8 @@ CREATE TABLE `stored_objects` (
 INSERT INTO storage_usage (id, used) VALUES (1, 0);
 --> statement-breakpoint
 CREATE TRIGGER stored_objects_reserve BEFORE INSERT ON stored_objects BEGIN
-  SELECT CASE WHEN NEW.size < 1 OR NEW.size > 3000000 THEN RAISE(ABORT, 'file_size_invalid') END;
-  SELECT CASE WHEN NOT EXISTS (SELECT 1 FROM storage_usage WHERE id=1 AND used + NEW.size <= 200000000) THEN RAISE(ABORT, 'file_storage_full') END;
+  SELECT RAISE(ABORT, 'file_size_invalid') WHERE NEW.size < 1 OR NEW.size > 3000000;
+  SELECT RAISE(ABORT, 'file_storage_full') WHERE NOT EXISTS (SELECT 1 FROM storage_usage WHERE id=1 AND used + NEW.size <= 200000000);
   UPDATE storage_usage SET used = used + NEW.size WHERE id=1;
 END;
 --> statement-breakpoint

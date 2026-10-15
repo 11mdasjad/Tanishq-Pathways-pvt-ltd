@@ -12,7 +12,7 @@ export const now=()=>new Date().toISOString();
 export const id=()=>crypto.randomUUID();
 export function db(): D1Database {return (env as any).DB;}
 export function bucket() {
- if (env.FILE_STORAGE === 'd1') return d1Storage(db());
+ if (['d1','libsql'].includes(env.FILE_STORAGE||'')) return d1Storage(db());
  if (!env.BUCKET) throw new Error('File storage is not configured.');
  return env.BUCKET;
 }
@@ -80,7 +80,7 @@ export async function overview(u:any){
  rows(`SELECT p.*,l.name AS applicant FROM appointments p JOIN leads l ON p.lead_id=l.id WHERE 1=1${restriction} ORDER BY p.starts_at`,...args),
  rows(`SELECT a.*,u.name AS actor_name,l.name AS applicant FROM activities a JOIN users u ON u.id=a.actor LEFT JOIN leads l ON l.id=a.lead_id WHERE 1=1${restriction} ORDER BY a.created_at DESC LIMIT 100`,...args),config()]);
  const tasks=await rows(`SELECT t.*,u.name AS employee FROM tasks t JOIN users u ON u.id=t.assigned ${u.role==='Admin'?'':'WHERE t.assigned=?'} ORDER BY t.due_date,t.created_at DESC`,...(u.role==='Admin'?[]:[u.id]));
- return {storage:u.role==='Admin'&&env.FILE_STORAGE==='d1'?{used:Number((await one('SELECT used FROM storage_usage WHERE id=1'))?.used||0),limit:FILE_STORAGE_LIMIT,maxFileBytes:MAX_FILE_BYTES}:null,tasks,user:{id:u.id,name:u.name,email:u.email,username:u.username,role:u.role},leads:ls.map(l=>({...l,profile:JSON.parse(l.profile)})),users:people,documents:docs,agreements:ags.map(({snapshot,...a})=>({...a,plan:JSON.parse(snapshot).plan||null})),payments:pays,appointments:appts,activities:logs,settings:u.role==='Admin'?s:{companyName:s.companyName,requirements:s.requirements,countryRequirements:s.countryRequirements,logoId:s.logoId,paymentBankName:s.paymentBankName,paymentAccountName:s.paymentAccountName,paymentAccountNumber:s.paymentAccountNumber,paymentIfsc:s.paymentIfsc,paymentUpi:s.paymentUpi,paymentInstructions:s.paymentInstructions}};
+ return {storage:u.role==='Admin'&&['d1','libsql'].includes(env.FILE_STORAGE||'')?{used:Number((await one('SELECT used FROM storage_usage WHERE id=1'))?.used||0),limit:FILE_STORAGE_LIMIT,maxFileBytes:MAX_FILE_BYTES}:null,tasks,user:{id:u.id,name:u.name,email:u.email,username:u.username,role:u.role},leads:ls.map(l=>({...l,profile:JSON.parse(l.profile)})),users:people,documents:docs,agreements:ags.map(({snapshot,...a})=>({...a,plan:JSON.parse(snapshot).plan||null})),payments:pays,appointments:appts,activities:logs,settings:u.role==='Admin'?s:{companyName:s.companyName,requirements:s.requirements,countryRequirements:s.countryRequirements,logoId:s.logoId,paymentBankName:s.paymentBankName,paymentAccountName:s.paymentAccountName,paymentAccountNumber:s.paymentAccountNumber,paymentIfsc:s.paymentIfsc,paymentUpi:s.paymentUpi,paymentInstructions:s.paymentInstructions}};
 }
 
 export async function requireVerifiedPayment(lead:any){

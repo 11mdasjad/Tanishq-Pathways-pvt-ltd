@@ -1,3 +1,4 @@
+import {sameOrigin} from '../../../lib/request-origin';
 import {actor,query,one,db,audit,now,fail,errorResponse} from '../../../lib/crm';
 import {hashPassword,verifyPassword,tokenHash,sessionToken} from '../../../lib/password';
 import {z} from 'zod';
@@ -7,7 +8,7 @@ const publicUser=(u:any)=>({id:u.id,name:u.name,username:u.username,role:u.role,
 function cookieHeader(request:Request,token:string,expires=28800){return `tp_session=${token}; Path=/; HttpOnly; SameSite=Strict; Max-Age=${expires}${new URL(request.url).protocol==='https:'?'; Secure':''}`;}
 export async function GET(){try{return Response.json({user:publicUser(await actor(true))},{headers:{'Cache-Control':'no-store'}});}catch(e){return errorResponse(e);}}
 export async function POST(request:Request){try{
- if(request.headers.get('origin')!==new URL(request.url).origin)fail('Invalid request origin.',403);
+ if(!sameOrigin(request))fail('Invalid request origin.',403);
  const body:any=await request.json();
  if(body.action==='logout'){const token=(await cookies()).get('tp_session')?.value;if(token)await query('DELETE FROM auth_sessions WHERE id=?',await tokenHash(token)).run();return Response.json({ok:true},{headers:{'Set-Cookie':cookieHeader(request,'',0),'Cache-Control':'no-store'}});}
  if(body.action==='changePassword'){

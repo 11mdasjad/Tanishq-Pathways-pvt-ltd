@@ -1,0 +1,81 @@
+[
+  {
+    "id": "0000_conscious_thunderbird",
+    "statements": [
+      "CREATE TABLE `activities` (\n\t`id` text PRIMARY KEY NOT NULL,\n\t`lead_id` text,\n\t`actor` text NOT NULL,\n\t`action` text NOT NULL,\n\t`detail` text DEFAULT '' NOT NULL,\n\t`created_at` text NOT NULL,\n\tFOREIGN KEY (`lead_id`) REFERENCES `leads`(`id`) ON UPDATE no action ON DELETE no action,\n\tFOREIGN KEY (`actor`) REFERENCES `users`(`id`) ON UPDATE no action ON DELETE no action\n);",
+      "CREATE INDEX `activity_lead` ON `activities` (`lead_id`);",
+      "CREATE TABLE `agreements` (\n\t`id` text PRIMARY KEY NOT NULL,\n\t`lead_id` text NOT NULL,\n\t`version` integer NOT NULL,\n\t`file_id` text NOT NULL,\n\t`signed_file_id` text,\n\t`revision` integer NOT NULL,\n\t`status` text DEFAULT 'Agreement Draft' NOT NULL,\n\t`snapshot` text NOT NULL,\n\t`created_by` text NOT NULL,\n\t`created_at` text NOT NULL,\n\tFOREIGN KEY (`lead_id`) REFERENCES `leads`(`id`) ON UPDATE no action ON DELETE no action,\n\tFOREIGN KEY (`file_id`) REFERENCES `files`(`id`) ON UPDATE no action ON DELETE no action,\n\tFOREIGN KEY (`signed_file_id`) REFERENCES `files`(`id`) ON UPDATE no action ON DELETE no action,\n\tFOREIGN KEY (`created_by`) REFERENCES `users`(`id`) ON UPDATE no action ON DELETE no action\n);",
+      "CREATE UNIQUE INDEX `agreement_version` ON `agreements` (`lead_id`,`version`);",
+      "CREATE TABLE `appointments` (\n\t`id` text PRIMARY KEY NOT NULL,\n\t`lead_id` text NOT NULL,\n\t`title` text NOT NULL,\n\t`starts_at` text NOT NULL,\n\t`notes` text DEFAULT '' NOT NULL,\n\t`status` text DEFAULT 'Scheduled' NOT NULL,\n\t`created_by` text NOT NULL,\n\t`created_at` text NOT NULL,\n\tFOREIGN KEY (`lead_id`) REFERENCES `leads`(`id`) ON UPDATE no action ON DELETE no action,\n\tFOREIGN KEY (`created_by`) REFERENCES `users`(`id`) ON UPDATE no action ON DELETE no action\n);",
+      "CREATE TABLE `files` (\n\t`id` text PRIMARY KEY NOT NULL,\n\t`lead_id` text,\n\t`kind` text NOT NULL,\n\t`name` text NOT NULL,\n\t`category` text NOT NULL,\n\t`mime` text NOT NULL,\n\t`size` integer NOT NULL,\n\t`object_key` text NOT NULL,\n\t`status` text DEFAULT 'Under Review' NOT NULL,\n\t`remarks` text DEFAULT '' NOT NULL,\n\t`replaces` text,\n\t`uploaded_by` text NOT NULL,\n\t`created_at` text NOT NULL,\n\tFOREIGN KEY (`lead_id`) REFERENCES `leads`(`id`) ON UPDATE no action ON DELETE no action,\n\tFOREIGN KEY (`uploaded_by`) REFERENCES `users`(`id`) ON UPDATE no action ON DELETE no action\n);",
+      "CREATE UNIQUE INDEX `files_object_key_unique` ON `files` (`object_key`);",
+      "CREATE INDEX `files_lead` ON `files` (`lead_id`);",
+      "CREATE TABLE `leads` (\n\t`id` text PRIMARY KEY NOT NULL,\n\t`name` text NOT NULL,\n\t`mobile` text NOT NULL,\n\t`email` text DEFAULT '' NOT NULL,\n\t`country` text NOT NULL,\n\t`visa` text NOT NULL,\n\t`source` text NOT NULL,\n\t`assigned` text NOT NULL,\n\t`status` text DEFAULT 'Prospect' NOT NULL,\n\t`profile` text DEFAULT '{}' NOT NULL,\n\t`notes` text DEFAULT '' NOT NULL,\n\t`rejection` text DEFAULT '' NOT NULL,\n\t`archived` integer DEFAULT 0 NOT NULL,\n\t`revision` integer DEFAULT 0 NOT NULL,\n\t`created_by` text NOT NULL,\n\t`created_at` text NOT NULL,\n\t`updated_at` text NOT NULL,\n\tFOREIGN KEY (`assigned`) REFERENCES `users`(`id`) ON UPDATE no action ON DELETE no action,\n\tFOREIGN KEY (`created_by`) REFERENCES `users`(`id`) ON UPDATE no action ON DELETE no action\n);",
+      "CREATE INDEX `leads_assigned` ON `leads` (`assigned`);",
+      "CREATE INDEX `leads_status` ON `leads` (`status`);",
+      "CREATE TABLE `payments` (\n\t`id` text PRIMARY KEY NOT NULL,\n\t`lead_id` text NOT NULL,\n\t`amount` integer NOT NULL,\n\t`reference` text NOT NULL,\n\t`method` text NOT NULL,\n\t`created_by` text NOT NULL,\n\t`created_at` text NOT NULL,\n\tFOREIGN KEY (`lead_id`) REFERENCES `leads`(`id`) ON UPDATE no action ON DELETE no action,\n\tFOREIGN KEY (`created_by`) REFERENCES `users`(`id`) ON UPDATE no action ON DELETE no action\n);",
+      "CREATE UNIQUE INDEX `payments_reference_unique` ON `payments` (`reference`);",
+      "CREATE TABLE `settings` (\n\t`id` text PRIMARY KEY NOT NULL,\n\t`value` text NOT NULL,\n\t`updated_at` text NOT NULL\n);",
+      "CREATE TABLE `users` (\n\t`id` text PRIMARY KEY NOT NULL,\n\t`identity` text,\n\t`email` text NOT NULL,\n\t`name` text NOT NULL,\n\t`role` text NOT NULL,\n\t`active` integer DEFAULT 1 NOT NULL,\n\t`created_at` text NOT NULL\n);",
+      "CREATE UNIQUE INDEX `users_identity_unique` ON `users` (`identity`);",
+      "CREATE UNIQUE INDEX `users_email_unique` ON `users` (`email`);",
+      "CREATE TABLE `verifications` (\n\t`id` text PRIMARY KEY NOT NULL,\n\t`lead_id` text NOT NULL,\n\t`reviewer` text NOT NULL,\n\t`decision` text NOT NULL,\n\t`remarks` text NOT NULL,\n\t`created_at` text NOT NULL,\n\tFOREIGN KEY (`lead_id`) REFERENCES `leads`(`id`) ON UPDATE no action ON DELETE no action,\n\tFOREIGN KEY (`reviewer`) REFERENCES `users`(`id`) ON UPDATE no action ON DELETE no action\n);"
+    ]
+  },
+  {
+    "id": "0001_flawless_lord_tyger",
+    "statements": [
+      "CREATE TABLE `operation_guards` (\n\t`id` text PRIMARY KEY NOT NULL,\n\t`success` integer NOT NULL,\n\tCONSTRAINT \"guard_success\" CHECK(\"operation_guards\".\"success\" = 1)\n);",
+      "ALTER TABLE `leads` ADD `lock_version` integer DEFAULT 0 NOT NULL;"
+    ]
+  },
+  {
+    "id": "0002_blushing_kitty_pryde",
+    "statements": [
+      "CREATE TABLE `auth_sessions` (\n\t`id` text PRIMARY KEY NOT NULL,\n\t`user_id` text NOT NULL,\n\t`expires_at` integer NOT NULL,\n\t`created_at` text NOT NULL,\n\tFOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON UPDATE no action ON DELETE no action\n);",
+      "CREATE INDEX `sessions_user` ON `auth_sessions` (`user_id`);",
+      "CREATE TABLE `login_attempts` (\n\t`id` text PRIMARY KEY NOT NULL,\n\t`attempts` integer NOT NULL,\n\t`reset_at` integer NOT NULL\n);",
+      "ALTER TABLE `users` ADD `username` text;",
+      "ALTER TABLE `users` ADD `password_hash` text;",
+      "ALTER TABLE `users` ADD `must_change_password` integer DEFAULT 0 NOT NULL;",
+      "CREATE UNIQUE INDEX `users_username_unique` ON `users` (`username`);"
+    ]
+  },
+  {
+    "id": "0003_gorgeous_riptide",
+    "statements": [
+      "CREATE TABLE `tasks` (\n\t`id` text PRIMARY KEY NOT NULL,\n\t`title` text NOT NULL,\n\t`notes` text DEFAULT '' NOT NULL,\n\t`assigned` text NOT NULL,\n\t`due_date` text NOT NULL,\n\t`status` text DEFAULT 'To do' NOT NULL,\n\t`created_by` text NOT NULL,\n\t`created_at` text NOT NULL,\n\t`updated_at` text NOT NULL,\n\tFOREIGN KEY (`assigned`) REFERENCES `users`(`id`) ON UPDATE no action ON DELETE no action,\n\tFOREIGN KEY (`created_by`) REFERENCES `users`(`id`) ON UPDATE no action ON DELETE no action\n);",
+      "CREATE INDEX `tasks_assigned` ON `tasks` (`assigned`);"
+    ]
+  },
+  {
+    "id": "0004_flashy_deadpool",
+    "statements": [
+      "ALTER TABLE `leads` ADD `payment_required` integer;",
+      "ALTER TABLE `payments` ADD `status` text DEFAULT 'Pending verification' NOT NULL;",
+      "ALTER TABLE `payments` ADD `receipt_number` text;",
+      "ALTER TABLE `payments` ADD `paid_on` text DEFAULT '' NOT NULL;",
+      "ALTER TABLE `payments` ADD `payer_name` text DEFAULT '' NOT NULL;",
+      "ALTER TABLE `payments` ADD `notes` text DEFAULT '' NOT NULL;",
+      "ALTER TABLE `payments` ADD `proof_file_id` text REFERENCES files(id);",
+      "ALTER TABLE `payments` ADD `verified_by` text REFERENCES users(id);",
+      "ALTER TABLE `payments` ADD `verified_at` text;",
+      "ALTER TABLE `payments` ADD `verification_notes` text DEFAULT '' NOT NULL;",
+      "ALTER TABLE `payments` ADD `receipt_snapshot` text DEFAULT '{}' NOT NULL;",
+      "CREATE UNIQUE INDEX `payments_receipt_number_unique` ON `payments` (`receipt_number`);"
+    ]
+  },
+  {
+    "id": "0005_free_file_storage",
+    "statements": [
+      "CREATE TABLE `storage_usage` (\n\t`id` integer PRIMARY KEY NOT NULL,\n\t`used` integer DEFAULT 0 NOT NULL\n);",
+      "CREATE TABLE `stored_chunks` (\n\t`object_key` text NOT NULL,\n\t`part` integer NOT NULL,\n\t`data` blob NOT NULL,\n\tFOREIGN KEY (`object_key`) REFERENCES `stored_objects`(`object_key`) ON UPDATE no action ON DELETE cascade\n);",
+      "CREATE UNIQUE INDEX `stored_chunks_part` ON `stored_chunks` (`object_key`,`part`);",
+      "CREATE TABLE `stored_objects` (\n\t`object_key` text PRIMARY KEY NOT NULL,\n\t`size` integer NOT NULL\n);",
+      "INSERT INTO storage_usage (id, used) VALUES (1, 0);",
+      "CREATE TRIGGER stored_objects_reserve BEFORE INSERT ON stored_objects BEGIN\n  SELECT RAISE(ABORT, 'file_size_invalid') WHERE NEW.size < 1 OR NEW.size > 3000000;\n  SELECT RAISE(ABORT, 'file_storage_full') WHERE NOT EXISTS (SELECT 1 FROM storage_usage WHERE id=1 AND used + NEW.size <= 200000000);\n  UPDATE storage_usage SET used = used + NEW.size WHERE id=1;\nEND;",
+      "CREATE TRIGGER stored_objects_release AFTER DELETE ON stored_objects BEGIN\n  UPDATE storage_usage SET used = used - OLD.size WHERE id=1;\nEND;",
+      "CREATE TRIGGER stored_objects_immutable BEFORE UPDATE ON stored_objects BEGIN\n  SELECT RAISE(ABORT, 'stored_objects_are_immutable');\nEND;"
+    ]
+  }
+]
