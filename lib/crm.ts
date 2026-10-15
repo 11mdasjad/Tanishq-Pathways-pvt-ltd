@@ -1,3 +1,4 @@
+import {d1Storage, FILE_STORAGE_LIMIT, MAX_FILE_BYTES} from './d1-storage';
 import {agreementPlans,resolveAgreementPlan} from './agreement-plans';
 import { paymentSummary } from './payment-summary';
 import { agreementSetup } from './agreement-setup';
@@ -10,7 +11,11 @@ export const defaults = {companyName:'Tanishka Pathways Pvt Ltd',address:'',emai
 export const now=()=>new Date().toISOString();
 export const id=()=>crypto.randomUUID();
 export function db(): D1Database {return (env as any).DB;}
-export function bucket(): R2Bucket {return (env as any).BUCKET;}
+export function bucket() {
+ if (env.FILE_STORAGE === 'd1') return d1Storage(db());
+ if (!env.BUCKET) throw new Error('File storage is not configured.');
+ return env.BUCKET;
+}
 export const query=(sql:string,...args:any[])=>db().prepare(sql).bind(...args);
 export async function rows(sql:string,...args:any[]){return (await query(sql,...args).all()).results as any[];}
 export async function one(sql:string,...args:any[]){return await query(sql,...args).first() as any;}
@@ -26,6 +31,7 @@ export async function actor(allowPasswordChange=false){
  }
  if(await one('SELECT id FROM users WHERE password_hash IS NOT NULL LIMIT 1'))fail('Please sign in with your employee ID and password.',401);
 
+ if(env.PASSWORD_AUTH_ONLY==='true')fail('Please sign in with your employee ID and password.',401);
  const identity=await getChatGPTUser(); if(!identity)fail('Please sign in to continue.',401);
  let u=await one('SELECT * FROM users WHERE identity=?',identity.userId);
  if(!u){
@@ -74,7 +80,7 @@ export async function overview(u:any){
  rows(`SELECT p.*,l.name AS applicant FROM appointments p JOIN leads l ON p.lead_id=l.id WHERE 1=1${restriction} ORDER BY p.starts_at`,...args),
  rows(`SELECT a.*,u.name AS actor_name,l.name AS applicant FROM activities a JOIN users u ON u.id=a.actor LEFT JOIN leads l ON l.id=a.lead_id WHERE 1=1${restriction} ORDER BY a.created_at DESC LIMIT 100`,...args),config()]);
  const tasks=await rows(`SELECT t.*,u.name AS employee FROM tasks t JOIN users u ON u.id=t.assigned ${u.role==='Admin'?'':'WHERE t.assigned=?'} ORDER BY t.due_date,t.created_at DESC`,...(u.role==='Admin'?[]:[u.id]));
- return {tasks,user:{id:u.id,name:u.name,email:u.email,username:u.username,role:u.role},leads:ls.map(l=>({...l,profile:JSON.parse(l.profile)})),users:people,documents:docs,agreements:ags.map(({snapshot,...a})=>({...a,plan:JSON.parse(snapshot).plan||null})),payments:pays,appointments:appts,activities:logs,settings:u.role==='Admin'?s:{companyName:s.companyName,requirements:s.requirements,countryRequirements:s.countryRequirements,logoId:s.logoId,paymentBankName:s.paymentBankName,paymentAccountName:s.paymentAccountName,paymentAccountNumber:s.paymentAccountNumber,paymentIfsc:s.paymentIfsc,paymentUpi:s.paymentUpi,paymentInstructions:s.paymentInstructions}};
+ return {storage:u.role==='Admin'&&env.FILE_STORAGE==='d1'?{used:Number((await one('SELECT used FROM storage_usage WHERE id=1'))?.used||0),limit:FILE_STORAGE_LIMIT,maxFileBytes:MAX_FILE_BYTES}:null,tasks,user:{id:u.id,name:u.name,email:u.email,username:u.username,role:u.role},leads:ls.map(l=>({...l,profile:JSON.parse(l.profile)})),users:people,documents:docs,agreements:ags.map(({snapshot,...a})=>({...a,plan:JSON.parse(snapshot).plan||null})),payments:pays,appointments:appts,activities:logs,settings:u.role==='Admin'?s:{companyName:s.companyName,requirements:s.requirements,countryRequirements:s.countryRequirements,logoId:s.logoId,paymentBankName:s.paymentBankName,paymentAccountName:s.paymentAccountName,paymentAccountNumber:s.paymentAccountNumber,paymentIfsc:s.paymentIfsc,paymentUpi:s.paymentUpi,paymentInstructions:s.paymentInstructions}};
 }
 
 export async function requireVerifiedPayment(lead:any){
@@ -232,7 +238,7 @@ export async function mutate(u:any,b:any){
  fail('Unknown action.');
 }
 export async function upload(u:any,form:FormData){
- const f=form.get('file');if(!(f instanceof File))fail('Choose a file.');if(!f.size||f.size>10*1024*1024)fail('Files must be between 1 byte and 10 MB.');
+ const f=form.get('file');if(!(f instanceof File))fail('Choose a file.');if(!f.size||f.size>MAX_FILE_BYTES)fail('Files must be between 1 byte and 3 MB.');
  const kind=z.enum(['document','signed','logo','signature','payment_proof']).parse(form.get('kind'));const bytes=new Uint8Array(await f.arrayBuffer());
  const png=bytes[0]===137&&bytes[1]===80&&bytes[2]===78&&bytes[3]===71&&bytes[4]===13&&bytes[5]===10;const jpg=bytes[0]===255&&bytes[1]===216&&bytes[2]===255;const pdf=new TextDecoder().decode(bytes.slice(0,5))==='%PDF-';
  const mime=png?'image/png':jpg?'image/jpeg':pdf?'application/pdf':'';if(!mime||mime!==f.type)fail('Upload a valid PDF, JPG or PNG with matching file content.');if(['logo','signature'].includes(kind)&&pdf)fail('Company assets must be PNG or JPG.');if(kind==='signed'&&!pdf)fail('Signed agreements must be PDF.');

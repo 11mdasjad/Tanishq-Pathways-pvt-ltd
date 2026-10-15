@@ -22,38 +22,71 @@ React 19 + TypeScript on Vinext/Vite, Cloudflare Workers, D1 SQLite, private R2 
 
 Admin and Employee accounts now support ID/password sign-in, automatically resolving the role from the database. Passwords use salted PBKDF2-SHA256 hashes; random session tokens are stored only as SHA-256 hashes in the database. Cookies are HttpOnly/SameSite=Strict and Secure on HTTPS, with an eight-hour expiry. Login attempts are limited by account and IP. Temporary passwords require a first-login change, and resets revoke all prior sessions. Once password accounts are provisioned, the legacy Sites identity fallback is disabled. Sites hosting, if later approved, remains a separate outer access boundary.
 
-## Deploy on Vercel
+## Free backend setup (no R2 subscription)
 
-Vercel uses native Next.js through `vercel.json` and `npm run build:vercel`.
-The normal local/Sites workflow still uses Vinext. Node is pinned to `22.x`.
-Do not change Vercel's output directory to `dist`: Next.js emits `.next`, including
-`routes-manifest.json`.
+For this client's zero recurring backend budget, `npm run build:backend` builds a
+Cloudflare Worker with **only D1**, using the existing `tanishq-crm` database.
+Keep the Cloudflare account on **Workers Free**. Do not enable R2 or upgrade to a
+paid Workers plan for this setup. This does not cancel any existing subscription.
 
-The CRM backend requires Cloudflare D1 and R2; these bindings cannot run inside
-Vercel functions. This deployment supports a Vercel frontend with the existing
-Cloudflare backend:
+- Applicant records, accounts and files persist on the server across browsers.
+- Files are private, stored as D1 BLOB chunks, and served through existing role checks.
+- Total file payload is capped at **200 MB**, including old document versions,
+  company images and generated agreements. Maximum individual file: **3 MB**.
+- SQLite triggers enforce the cap transactionally, even for simultaneous uploads.
+  At capacity new uploads stop; existing documents are retained. Admin sees usage.
+- D1 Free has a 500 MB per-database limit. The file cap leaves space for database
+  overhead and CRM records; provider limits can still stop writes earlier.
+- Daily Free limits stop requests instead of charging overages. This may temporarily
+  interrupt login, reads or writes. Free-tier CPU limits also apply to PDFs.
+- This is a small-workspace configuration, **not 10 GB of free file storage**.
+  External hosting/domain fees and other account subscriptions are separate.
+- The local/Sites profile still supports its existing R2 files. Switching an existing
+  R2-backed production workspace needs a separate file migration; do not switch it
+  without migrating and verifying its documents. The supplied production D1 was empty.
 
-1. Deploy the backend to Cloudflare with the `DB` and `BUCKET` bindings, apply all
-   `drizzle/*.sql` migrations in order, and provision production password accounts.
-   Local `.wrangler` data/accounts are not uploaded by Git or Vercel.
-2. Set `CLOUDFLARE_BACKEND_ORIGIN` in Vercel to that deployment's HTTPS origin
-   (no path, query, or trailing API route). It must expose the password-authenticated
-   APIs without an outer Sites sign-in redirect. Do not use the Vercel URL itself.
-3. Keep Framework Preset **Next.js**, Build Command **npm run build:vercel**,
-   and Output Directory **.next**, then redeploy.
-4. Verify login/logout, employee permissions, file upload/download, and PDF receipts
-   against the configured production backend. Vercel function request-size limits
-   also apply to proxied uploads.
+### First production deployment
 
-`proxy.ts` forwards API traffic and session cookies to Cloudflare. It validates
-browser origins before forwarding mutations and strips inbound identity headers.
-Without a backend origin, pages still deploy but APIs return an explicit 503.
-An unavailable backend returns 502. No local database or fake production data is
-used as a fallback. Cloudflare retains its transactional writes and private files.
+From this project folder:
 
-For a local Next.js production smoke check: `npm run build:vercel`, then
-`npm run start:vercel`. Set the backend origin in the server environment when
-checking real workflows. Use the normal local workflow below for D1/R2 emulation.
+```sh
+node --import ./scripts/sites-env.mjs node_modules/wrangler/bin/wrangler.js login
+npm run db:migrate:backend
+npm run admin:provision:backend
+npm run deploy:backend
+```
+
+Login happens in your browser; never commit or share account tokens. Provisioning
+creates only the initial Admin when the database has no users. Temporary credentials
+are saved privately in `.local/production-admin.json`, excluded from Git. Change the
+password on first login, update Admin details, then create real employee accounts.
+It never overwrites an existing user's password. Keep this file securely with the
+client handover; a retry against an existing account does not verify its contents.
+
+The deployed Worker prints an HTTPS `workers.dev` URL. Configure that origin as
+`CLOUDFLARE_BACKEND_ORIGIN` in Vercel, then redeploy the Vercel project. Check login,
+employee isolation, save/reload, upload/download and generated PDFs on the live
+Free plan before client handover. Local tests cannot prove production CPU usage.
+
+For a local isolated check, use `wrangler.backend.json` with `d1 migrations apply
+DB --local --persist-to .local/free-backend-test`, then run the built Worker with
+`wrangler dev --config dist/server/wrangler.json --persist-to .local/free-backend-test`.
+Do not run destructive test fixtures against production data.
+
+### Vercel frontend
+
+`vercel.json` selects Next.js, `npm run build:vercel` and `.next`. Node is pinned to
+`22.x`. API requests are forwarded to the configured backend with browser-origin
+validation and incoming identity headers removed. Password authentication is
+required on the public Cloudflare backend; Sites identity bootstrap is disabled.
+Missing backend configuration returns 503, not simulated successful saves.
+
+```sh
+npm run build:vercel
+npm run start:vercel
+node --experimental-strip-types tests/backend-proxy.mjs
+node --experimental-strip-types tests/d1-storage.mjs
+```
 
 ## Run locally
 
@@ -140,3 +173,35 @@ Draft templates are business starting points, not a certification of local legal
 Changing a template in the editor clears its approval. Generated agreement versions retain a snapshot of the chosen plan, title, scope, terms, payment position and template version. Earlier PDFs stay available in history. Changing an applicant destination or visa category requires re-verification; selecting a different dropdown option cannot bypass it. Existing company assets, applicant verification and verified-payment prerequisites still apply.
 
 Checks: `node --experimental-strip-types tests/agreement-plans.mjs`, `node tests/workflow.mjs`, and `CRM_WORKFLOW_EMPLOYEE=1 node tests/workflow.mjs` against the disposable local database.
+
+## CRM save/upload visibility
+
+Database and file storage run behind the CRM; staff do not need a database console
+for normal work. Employees create applicant records and upload documents from their
+workspace. Admin can see all records; each Employee can see only assigned records
+and their files. Existing review, payment and agreement steps remain in place.
+
+The workspace refreshes visible, idle views every 15 seconds and when the browser
+regains focus or connectivity. Save/upload still refreshes the current workspace
+immediately. Automatic refresh pauses while a modal, applicant edit, settings or
+creation form is open. Requests bypass the browser cache, and older responses do
+not replace a newer overview or a different applicant's details.
+
+`next.config.ts` selects Cloudflare runtime bindings for the Worker build and the
+Vercel adapter for the Vercel build. Using the Vercel adapter in the Worker prevents
+all database access even when D1 is correctly bound.
+
+Regression checks:
+
+```sh
+npm run build:backend
+node --experimental-strip-types tests/upload-sharing.mjs
+node --experimental-strip-types tests/d1-storage.mjs
+npm run build:vercel
+```
+
+The upload-sharing test creates its own temporary local database/server, checks
+Admin and assigned-Employee visibility, denies another Employee, compares the
+saved PDF bytes and repeats checks after a server restart. It never uses the real
+workspace database. These local checks do not deploy or verify a hosted backend;
+Vercel still requires the configured shared backend described above.

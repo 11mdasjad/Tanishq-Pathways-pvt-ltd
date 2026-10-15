@@ -13,7 +13,11 @@
     "lint": "eslint . --ignore-pattern dist --ignore-pattern .next",
     "db:generate": "drizzle-kit generate",
     "build:vercel": "next build --webpack",
-    "start:vercel": "next start"
+    "start:vercel": "next start",
+    "build:backend": "FREE_BACKEND=1 node scripts/run-framework.mjs build",
+    "deploy:backend": "npm run build:backend && node --import ./scripts/sites-env.mjs ./node_modules/wrangler/bin/wrangler.js deploy --config dist/server/wrangler.json",
+    "db:migrate:backend": "node --import ./scripts/sites-env.mjs ./node_modules/wrangler/bin/wrangler.js d1 migrations apply DB --remote --config wrangler.backend.json",
+    "admin:provision:backend": "node --experimental-strip-types scripts/provision-backend.mjs"
   },
   "dependencies": {
     "@base-ui/react": "^1.7.0",

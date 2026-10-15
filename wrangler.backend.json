@@ -1,0 +1,12 @@
+{
+  "name": "tanishq-crm-backend",
+  "compatibility_date": "2026-05-15",
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "tanishq-crm",
+      "database_id": "40c05c53-d3b7-4134-a325-0c7e32dd56e6",
+      "migrations_dir": "drizzle"
+    }
+  ]
+}
