@@ -9,8 +9,8 @@ import {randomBytes} from 'node:crypto';
 import {PDFDocument} from 'pdf-lib';
 const directory=mkdtempSync(path.join(tmpdir(),'crm-vercel-test-'));
 const origin='http://127.0.0.1:5198';
-const initial='TEST!'+randomBytes(20).toString('hex');
-const changed='CHANGED!'+randomBytes(20).toString('hex');
+const initial=randomBytes(6).toString('base64');
+const changed=randomBytes(6).toString('base64');
 let server,logs='';
 const env={...process.env,CRM_LOCAL_DATABASE_PATH:path.join(directory,'crm.sqlite'),CRM_INITIAL_ADMIN_PASSWORD:initial};
 delete env.VERCEL;delete env.TURSO_DATABASE_URL;delete env.TURSO_AUTH_TOKEN;delete env.CLOUDFLARE_BACKEND_ORIGIN;
@@ -37,6 +37,7 @@ try{
  await start();
  const login=await(await call('admin','/api/auth',{action:'login',username:'admin',password:initial})).json();assert.equal(login.user.mustChangePassword,true);
  await call('admin','/api/crm',undefined,428);
+ await call('admin','/api/auth',{action:'changePassword',currentPassword:initial,newPassword:'short7!'},400);
  await call('admin','/api/auth',{action:'changePassword',currentPassword:initial,newPassword:changed});
  const overview=await(await call('admin')).json();assert.equal(overview.user.role,'Admin');assert.equal(overview.leads.length,0);
  for(const username of ['employee01','employee02']){

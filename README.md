@@ -29,7 +29,7 @@ One-time owner setup:
    a new empty database. Review its plan and terms before completing setup.
    The integration supplies `TURSO_DATABASE_URL` and `TURSO_AUTH_TOKEN`.
 2. Add a private `CRM_INITIAL_ADMIN_PASSWORD` environment variable (at least
-   14 characters) for Production. This is a temporary password for username `admin`.
+   8 characters) for Production. This is a temporary password for username `admin`.
    Do not put it in Git, the browser bundle or a `NEXT_PUBLIC_` variable.
 3. Deploy the current commit. The first request creates the schema automatically
    and creates the initial Admin only if the database has no accounts.

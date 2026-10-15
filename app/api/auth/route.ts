@@ -12,7 +12,7 @@ export async function POST(request:Request){try{
  const body:any=await request.json();
  if(body.action==='logout'){const token=(await cookies()).get('tp_session')?.value;if(token)await query('DELETE FROM auth_sessions WHERE id=?',await tokenHash(token)).run();return Response.json({ok:true},{headers:{'Set-Cookie':cookieHeader(request,'',0),'Cache-Control':'no-store'}});}
  if(body.action==='changePassword'){
-  const user=await actor(true);const d=z.object({currentPassword:z.string().max(200),newPassword:z.string().min(14).max(128)}).parse(body);
+  const user=await actor(true);const d=z.object({currentPassword:z.string().max(200),newPassword:z.string().min(8).max(128)}).parse(body);
   if(d.currentPassword===d.newPassword)fail('Choose a different password.');if(!user.password_hash||!await verifyPassword(d.currentPassword,user.password_hash))fail('Current password is incorrect.',400);
   const hash=await hashPassword(d.newPassword);const token=sessionToken();await db().batch([query('UPDATE users SET password_hash=?,must_change_password=0 WHERE id=?',hash,user.id),query('DELETE FROM auth_sessions WHERE user_id=?',user.id),query('INSERT INTO auth_sessions (id,user_id,expires_at,created_at) VALUES (?,?,?,?)',await tokenHash(token),user.id,Date.now()+28800000,now()),audit(user,null,'Password changed')]);return Response.json({user:publicUser({...user,must_change_password:0})},{headers:{'Set-Cookie':cookieHeader(request,token),'Cache-Control':'no-store'}});
  }

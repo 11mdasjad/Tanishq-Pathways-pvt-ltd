@@ -9,7 +9,7 @@ async function bootstrap(client:Client){
  // Public requests cannot choose an Admin or overwrite an existing password.
  if((await client.execute('SELECT id FROM users LIMIT 1')).rows.length)return;
  const password=process.env.CRM_INITIAL_ADMIN_PASSWORD;
- if(!password||password.length<14)setupError('First-time setup: add CRM_INITIAL_ADMIN_PASSWORD (at least 14 characters) in Vercel, then redeploy.');
+ if(!password||password.length<8)setupError('First-time setup: add CRM_INITIAL_ADMIN_PASSWORD (at least 8 characters) in Vercel, then redeploy.');
  const passwordHash=await hashPassword(password);
  await client.execute({sql:`INSERT INTO users (id,email,name,username,password_hash,must_change_password,role,active,created_at)
   SELECT 'owner','admin@workspace.invalid','Workspace Administrator','admin',?,1,'Admin',1,?
